@@ -34,9 +34,9 @@ data/
 *.pt
 *.pth
 *.bin
-# Allow safetensors in models/final
+# Allow safetensors in models/final only
 !models/final/*.safetensors
-*.safetensors
+models/**/*.safetensors
 *.ckpt
 *.h5
 
