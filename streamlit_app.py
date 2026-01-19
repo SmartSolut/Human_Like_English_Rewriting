@@ -56,34 +56,98 @@ config = load_config()
 # Model loading
 @st.cache_resource
 def load_model():
-    """Load the trained model"""
+    """Load the trained model from HuggingFace Hub or local path"""
     try:
+        # Try local path first
         model_path = "./models/final"
         base_model_name = "t5-base"
         
-        if not os.path.exists(model_path):
-            st.error(f"❌ Model not found at {model_path}")
-            return None, None, None
+        # Check if local model exists
+        if os.path.exists(model_path) and os.path.exists(os.path.join(model_path, "adapter_config.json")):
+            try:
+                # Load tokenizer
+                tokenizer = AutoTokenizer.from_pretrained(model_path)
+                
+                # Load base model
+                base_model = AutoModelForSeq2SeqLM.from_pretrained(
+                    base_model_name,
+                    torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                    device_map="auto" if torch.cuda.is_available() else None
+                )
+                
+                # Load LoRA adapter
+                model = PeftModel.from_pretrained(base_model, model_path)
+                model.eval()
+                
+                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                if not torch.cuda.is_available():
+                    model = model.to(device)
+                
+                return model, tokenizer, device
+            except Exception as e:
+                st.warning(f"⚠️ Local model failed to load: {str(e)}. Trying HuggingFace Hub...")
         
-        # Load tokenizer
-        tokenizer = AutoTokenizer.from_pretrained(model_path)
-        
-        # Load base model
-        base_model = AutoModelForSeq2SeqLM.from_pretrained(
-            base_model_name,
-            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
-            device_map="auto" if torch.cuda.is_available() else None
-        )
-        
-        # Load LoRA adapter
-        model = PeftModel.from_pretrained(base_model, model_path)
-        model.eval()
-        
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        if not torch.cuda.is_available():
-            model = model.to(device)
-        
-        return model, tokenizer, device
+        # Try HuggingFace Hub
+        hf_repo = "SmartSolut/Human_Like_English_Rewriting"
+        try:
+            from huggingface_hub import hf_hub_download, snapshot_download
+            
+            st.info("📥 Downloading model from HuggingFace Hub...")
+            
+            # Download adapter files
+            adapter_config = hf_hub_download(
+                repo_id=hf_repo,
+                filename="adapter_config.json",
+                cache_dir="./models/hf_cache"
+            )
+            adapter_model = hf_hub_download(
+                repo_id=hf_repo,
+                filename="adapter_model.safetensors",
+                cache_dir="./models/hf_cache"
+            )
+            
+            # Get directory from downloaded file
+            adapter_dir = os.path.dirname(adapter_config)
+            
+            # Load tokenizer
+            tokenizer = AutoTokenizer.from_pretrained(adapter_dir)
+            
+            # Load base model
+            base_model = AutoModelForSeq2SeqLM.from_pretrained(
+                base_model_name,
+                torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+                device_map="auto" if torch.cuda.is_available() else None
+            )
+            
+            # Load LoRA adapter
+            model = PeftModel.from_pretrained(base_model, adapter_dir)
+            model.eval()
+            
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            if not torch.cuda.is_available():
+                model = model.to(device)
+            
+            return model, tokenizer, device
+            
+        except Exception as hf_error:
+            st.warning(f"⚠️ HuggingFace Hub download failed: {str(hf_error)}")
+            st.info("🔄 Falling back to pre-trained paraphrase model...")
+            
+            # Fallback to pre-trained model
+            pretrained_model = "humarin/chatgpt_paraphrase"
+            try:
+                tokenizer = AutoTokenizer.from_pretrained(pretrained_model)
+                model = AutoModelForSeq2SeqLM.from_pretrained(pretrained_model)
+                model.eval()
+                
+                device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                model = model.to(device)
+                
+                return model, tokenizer, device
+            except Exception as pretrained_error:
+                st.error(f"❌ All model loading methods failed. Last error: {str(pretrained_error)}")
+                return None, None, None
+                
     except Exception as e:
         st.error(f"❌ Error loading model: {str(e)}")
         return None, None, None
