@@ -24,11 +24,18 @@ wheels/
 *.egg
 
 # Models & Data
-models/
+# Allow models/final to be uploaded (needed for Streamlit)
+!models/final/
+!models/final/**
+models/checkpoints/
+models/*/
+!models/final/
 data/
 *.pt
 *.pth
 *.bin
+# Allow safetensors in models/final
+!models/final/*.safetensors
 *.safetensors
 *.ckpt
 *.h5
