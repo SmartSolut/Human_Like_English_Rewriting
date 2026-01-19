@@ -1,0 +1,4 @@
+input,target,source,tone,strength
+humanize: This is an example AI-generated text that needs to be rewritten in a more human-like manner.,This is an example of human-written text that sounds natural and conversational.,book1,formal,light
+humanize: The system processes information through multiple algorithmic layers to generate optimal outcomes.,The system works through several steps to produce the best results.,book1,casual,medium
+humanize: Utilization of advanced computational methodologies facilitates enhanced performance metrics.,Using better methods helps improve results.,book1,academic,strong

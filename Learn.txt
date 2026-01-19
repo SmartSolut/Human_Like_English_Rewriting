@@ -1,0 +1,2 @@
+python -m uvicorn src.api.main:app --reload
+python src/training/trainer.py "book1_fixed.json" "data/processed/mpc_cleaned_combined_val.json"
